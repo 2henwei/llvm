@@ -437,9 +437,34 @@ public:
     initializeLoopUnrollAndJamPass(*PassRegistry::getPassRegistry());
   }
 
+  bool isInnermostLoop(Loop *L) {
+    errs() << "This Loop " << L->getName() << " has " << L->getSubLoops().size()
+           << " subloops\n";
+    return L->getSubLoops().size() == 0;
+  }
+
+  bool isOuterInnermostLoop(Loop *L) {
+    // It's an innermost loop
+    if (L->getSubLoops().size() == 0)
+      return false;
+
+    // It should have only 1 subloop
+    if (L->getSubLoops().size() > 1)
+      return false;
+
+    // This unique child loop should be innermost loop
+    Loop *ChildLoop = L->getSubLoops()[0];
+    return isInnermostLoop(ChildLoop);
+  }
+
   bool runOnLoop(Loop *L, LPPassManager &LPM) override {
     if (skipLoop(L))
       return false;
+
+    if (!isOuterInnermostLoop(L))
+      return false;
+
+    errs() << "Let's do UnrollAndJam on the outer innermost loop " << L->getName() << "\n";
 
     Function &F = *L->getHeader()->getParent();
 
