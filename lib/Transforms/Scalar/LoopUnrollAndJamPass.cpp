@@ -428,6 +428,21 @@ tryToUnrollAndJamLoop(Loop *L, DominatorTree &DT, LoopInfo *LI,
 
 namespace {
 
+std::string getBasicBlockName(BasicBlock *B) {
+  if (!B->getName().empty())
+    return B->getName().str();
+
+  std::string Str;
+  raw_string_ostream OS(Str);
+
+  B->printAsOperand(OS, false);
+  return OS.str();
+}
+
+std::string getLoopName(Loop *L) {
+  return getBasicBlockName(L->getBlocks()[0]);
+}
+
 class LoopUnrollAndJam : public LoopPass {
 public:
   static char ID; // Pass ID, replacement for typeid
@@ -438,8 +453,9 @@ public:
   }
 
   bool isInnermostLoop(Loop *L) {
-    errs() << "This Loop " << L->getName() << " has " << L->getSubLoops().size()
-           << " subloops\n";
+    // Debug information
+    // errs() << "This Loop " << getLoopName(L) << " has "
+    //        << L->getSubLoops().size() << " subloops\n";
     return L->getSubLoops().size() == 0;
   }
 
@@ -464,7 +480,12 @@ public:
     if (!isOuterInnermostLoop(L))
       return false;
 
-    errs() << "Let's do UnrollAndJam on the outer innermost loop " << L->getName() << "\n";
+    BasicBlock *ChildLoopBlock = L->getSubLoops()[0]->getBlocks()[0];
+    BasicBlock *LoopBlock = L->getBlocks()[0];
+
+    // Debug information
+    // errs() << "Let's do UnrollAndJam on the outer innermost loop "
+    //        << getLoopName(L) << "\n";
 
     Function &F = *L->getHeader()->getParent();
 
@@ -485,6 +506,16 @@ public:
 
     if (Result == LoopUnrollResult::FullyUnrolled)
       LPM.markLoopAsDeleted(*L);
+
+    if (Result != LoopUnrollResult::Unmodified) {
+      // assert(L->getSubLoops().size() == 1);
+      // Loop *ChildLoop = L->getSubLoops()[0];
+      // Debug information
+      // errs() << "This innermost loop " << getLoopName(ChildLoop)
+      //        << " has been unroll and jammed\n";
+      errs() << F.getName() << ", " << getBasicBlockName(LoopBlock) << ", "
+             << getBasicBlockName(ChildLoopBlock) << "\n";
+    }
 
     return Result != LoopUnrollResult::Unmodified;
   }
